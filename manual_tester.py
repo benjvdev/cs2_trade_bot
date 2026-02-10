@@ -9,16 +9,16 @@ import profit_engine
 # Formato: ("Nombre Exacto", Float)
 
 CONTRACT_INPUTS = [
-    ("MAC-10 | Sakkaku", 0.24),
-    ("MAC-10 | Sakkaku", 0.24),
-    ("MAC-10 | Sakkaku", 0.24),
-    ("MAC-10 | Sakkaku", 0.24),
-    ("MAC-10 | Sakkaku", 0.24),
-    ("MAC-10 | Sakkaku", 0.24), 
-    ("MAC-10 | Sakkaku", 0.24),
-    ("MAC-10 | Sakkaku", 0.24),
-    ("MAC-10 | Sakkaku", 0.24),
-    ("FAMAS | Sergeant", 0.26),
+   ("Five-SeveN | Orange Peel", 0.092),
+    ("Five-SeveN | Orange Peel", 0.092),
+    ("Five-SeveN | Orange Peel", 0.092),
+    ("Five-SeveN | Orange Peel", 0.092),
+    ("Five-SeveN | Orange Peel", 0.092),
+    ("Five-SeveN | Orange Peel", 0.092), 
+    ("Five-SeveN | Orange Peel", 0.092),
+    ("Five-SeveN | Orange Peel", 0.092),
+    ("Five-SeveN | Orange Peel", 0.092),
+    ("FAMAS | Grey Ghost", 0.092),
 ]
 
 # ==========================================
