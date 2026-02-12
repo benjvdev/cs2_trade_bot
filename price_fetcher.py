@@ -49,11 +49,6 @@ def get_json_data():
             return None
     else:
         print(f"❌ ERROR FATAL: No se pudo conectar y no existe '{LOCAL_FILE}'.")
-        print("💡 SOLUCIÓN MANUAL:")
-        print("   1. Ve a: http://csgobackpack.net/api/GetItemsList/v2/")
-        print("   2. Espera que cargue el texto.")
-        print("   3. Dale click derecho -> 'Guardar como' -> nómbralo 'prices.json'")
-        print("   4. Ponlo en esta misma carpeta y vuelve a ejecutar este script.")
         return None
 
 def update_prices():

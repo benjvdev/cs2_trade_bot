@@ -9,16 +9,16 @@ import profit_engine
 # Formato: ("Nombre Exacto", Float)
 
 CONTRACT_INPUTS = [
-   ("Five-SeveN | Orange Peel", 0.092),
-    ("Five-SeveN | Orange Peel", 0.092),
-    ("Five-SeveN | Orange Peel", 0.092),
-    ("Five-SeveN | Orange Peel", 0.092),
-    ("Five-SeveN | Orange Peel", 0.092),
-    ("Five-SeveN | Orange Peel", 0.092), 
-    ("Five-SeveN | Orange Peel", 0.092),
-    ("Five-SeveN | Orange Peel", 0.092),
-    ("Five-SeveN | Orange Peel", 0.092),
-    ("FAMAS | Grey Ghost", 0.092),
+   ("MP5-SD | Savannah Halftone", 0.298),
+    ("MP5-SD | Savannah Halftone", 0.298),
+    ("MP5-SD | Savannah Halftone", 0.298),
+    ("MP5-SD | Savannah Halftone", 0.298),
+    ("MP5-SD | Savannah Halftone", 0.298),
+    ("MP5-SD | Savannah Halftone", 0.298), 
+    ("MP5-SD | Savannah Halftone", 0.298),
+    ("MP5-SD | Savannah Halftone", 0.298),
+    ("MP5-SD | Savannah Halftone", 0.298),
+    ("MP5-SD | Savannah Halftone", 0.298),
 ]
 
 # ==========================================

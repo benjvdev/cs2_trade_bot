@@ -20,7 +20,6 @@ def simulate_trade_up(input_skins):
     
     # 2. Calcular Floats y Desgaste
     for outcome in possible_outcomes:
-        # La nueva lógica requiere pasar la lista completa de inputs (con sus caps)
         predicted_float = math_engine.calculate_outcome_float(
             input_skins, 
             outcome['min_float'], 
@@ -61,8 +60,8 @@ if __name__ == "__main__":
                 'collection': col,
                 'rarity': 'Industrial Grade',
                 'float': 0.012345,
-                'min_float': min_cap, # Necesario para math_engine actualizado
-                'max_float': max_cap  # Necesario para math_engine actualizado
+                'min_float': min_cap,
+                'max_float': max_cap  
             })
             
         results = simulate_trade_up(test_inputs)
