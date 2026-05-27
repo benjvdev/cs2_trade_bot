@@ -1,10 +1,11 @@
 import struct
+from typing import List, Dict
 
-def to_float32(val):
+def to_float32(val: float) -> float:
     """Simula la precisión de 32-bit (IEEE 754) del motor Source 2."""
     return struct.unpack('f', struct.pack('f', val))[0]
 
-def normalize_input_float(input_float, input_min, input_max):
+def normalize_input_float(input_float: float, input_min: float, input_max: float) -> float:
     """Calcula el porcentaje de desgaste relativo (Nueva fórmula Valve)."""
     rango = input_max - input_min
     if rango == 0: return 0.0
@@ -12,7 +13,7 @@ def normalize_input_float(input_float, input_min, input_max):
     val = (input_float - input_min) / rango
     return to_float32(val)
 
-def calculate_outcome_float(inputs_data, outcome_min, outcome_max):
+def calculate_outcome_float(inputs_data: List[Dict[str, float]], outcome_min: float, outcome_max: float) -> float:
     """
     Calcula el float de salida aplicando normalización de inputs.
     Args:
@@ -41,7 +42,7 @@ def calculate_outcome_float(inputs_data, outcome_min, outcome_max):
     
     return final_float
 
-def get_wear_name(float_value):
+def get_wear_name(float_value: float) -> str:
     if float_value < 0.07: return "Factory New"
     if float_value < 0.15: return "Minimal Wear"
     if float_value < 0.38: return "Field-Tested"
