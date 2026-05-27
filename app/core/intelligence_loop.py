@@ -6,19 +6,20 @@ from app.scrapers import daily_dump, steam, csfloat
 from app.core import arbitrage
 from app.core.contracts import ContractEngine
 from app.database.db_manager import DBManager
+from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
 
-def run_continuous_loop(config):
+def run_continuous_loop(config: Settings):
     print("--- 🔄 STARTING CONTINUOUS INTELLIGENCE LOOP ---")
     
     # 1. Ensure the Daily Dump is fresh
     print("Fetching daily dumps...")
     daily_dump.fetch_daily_dumps()
     
-    rmb_to_usd = config.get("rmb_to_usd", 0.14)
-    batch_size = config.get("batch_size", 50)
-    sleep_time = config.get("batch_sleep", 60)
+    rmb_to_usd = config.rmb_to_usd
+    batch_size = config.batch_size
+    sleep_time = config.batch_sleep
     
     while True:
         print("\n--- 🧠 New Intelligence Cycle ---")
@@ -31,8 +32,8 @@ def run_continuous_loop(config):
         db = DBManager()
         engine = ContractEngine(db, rmb_to_usd=rmb_to_usd)
         contracts_results = engine.hunt_contracts(
-            min_roi=config.get("min_roi", 15.0),
-            max_budget=config.get("max_budget", 50.0)
+            min_roi=config.min_roi,
+            max_budget=config.max_budget
         )
         
         # Combine opportunities (just take top ones)
@@ -51,9 +52,9 @@ def run_continuous_loop(config):
             print(f"\n📦 Processing batch {i+1}/{total_batches} ({len(batch)} items)")
             
             # 4. For each batch, trigger live scrapers
-            steam_limit = config.get("steam_limit", 100)
-            csfloat_limit = config.get("csfloat_limit", 100)
-            buff_session = config.get("buff_session", "")
+            steam_limit = config.steam_limit
+            csfloat_limit = config.csfloat_limit
+            buff_session = config.buff_session
             
             print("🚀 Triggering live scrapers...")
             try:
@@ -62,7 +63,7 @@ def run_continuous_loop(config):
                 print(f"⚠️ Steam scraper failed: {e}")
 
             try:
-                csfloat.fetch_csfloat_prices(limit=csfloat_limit)
+                csfloat.fetch_csfloat_prices(limit=csfloat_limit, settings=config)
             except Exception as e:
                 print(f"⚠️ CSFloat scraper failed: {e}")
             

@@ -2,27 +2,24 @@ import os
 import json
 import cloudscraper
 from app.database.db_manager import DBManager
+from app.core.config import load_settings, Settings
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config.json")
 
-def load_config():
-    if os.path.exists(CONFIG_PATH):
-        try:
-            with open(CONFIG_PATH, "r") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
-
-def fetch_csfloat_prices(limit=100):
+def fetch_csfloat_prices(limit=100, settings: Settings = None):
     """
     Fetches CS2 item prices from CSFloat API.
     """
+    if settings is None:
+        try:
+            settings = load_settings(CONFIG_PATH)
+        except Exception:
+            settings = None
+
     # CSFloat API listings endpoint
     url = f"https://csfloat.com/api/v1/listings?limit={limit}"
     
-    config = load_config()
-    api_key = config.get("csfloat_api_key")
+    api_key = settings.csfloat_api_key if settings else None
     headers = {}
     if api_key:
         headers["Authorization"] = api_key

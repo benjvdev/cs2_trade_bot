@@ -8,16 +8,10 @@ from app.core import arbitrage
 from app.core.contracts import ContractEngine
 from app.core import intelligence_loop
 from app.database.db_manager import DBManager
+from app.core.config import load_settings
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
 REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "reports")
-
-def load_config():
-    if not os.path.exists(CONFIG_PATH):
-        print(f"❌ Config file not found at {CONFIG_PATH}")
-        return {}
-    with open(CONFIG_PATH, "r") as f:
-        return json.load(f)
 
 def run_scrapers(config):
     print("\n--- 🚀 RUNNING SCRAPERS ---")
@@ -29,9 +23,9 @@ def run_scrapers(config):
     except Exception as e:
         print(f"❌ Error running daily dump: {e}")
 
-    steam_limit = config.get("steam_limit", 50)
-    csfloat_limit = config.get("csfloat_limit", 50)
-    buff_session = config.get("buff_session", "")
+    steam_limit = config.steam_limit
+    csfloat_limit = config.csfloat_limit
+    buff_session = config.buff_session
 
     # Run Steam
     steam.fetch_steam_prices(limit=steam_limit)
@@ -52,7 +46,7 @@ def run_scrapers(config):
 
 def run_analysis(config):
     print("\n--- 📊 RUNNING ANALYSIS ---")
-    rmb_to_usd = config.get("rmb_to_usd", 0.14)
+    rmb_to_usd = config.rmb_to_usd
     
     # Arbitrage
     print("🔍 Finding arbitrage opportunities...")
@@ -63,8 +57,8 @@ def run_analysis(config):
     db = DBManager()
     engine = ContractEngine(db, rmb_to_usd=rmb_to_usd)
     contracts_results = engine.hunt_contracts(
-        min_roi=config.get("min_roi", 15.0),
-        max_budget=config.get("max_budget", 50.0)
+        min_roi=config.min_roi,
+        max_budget=config.max_budget
     )
     
     return opps, contracts_results
@@ -116,7 +110,7 @@ def main():
     parser.add_argument("--loop", action="store_true", help="Run the continuous intelligence loop")
     args = parser.parse_args()
 
-    config = load_config()
+    config = load_settings(CONFIG_PATH)
 
     if args.loop:
         intelligence_loop.run_continuous_loop(config)
