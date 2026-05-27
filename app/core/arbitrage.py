@@ -1,21 +1,17 @@
-import sqlite3
 from app.database.db_manager import DBManager
 from app.utils.logger import bot_logger
 
-def find_arbitrage_opportunities(rmb_to_usd=0.14):
+def find_arbitrage_opportunities(rmb_to_usd=0.14, db_manager=None):
     """
     Identifies arbitrage opportunities where an item can be bought low on one market 
     and sold for a net profit on another.
     """
-    db = DBManager()
-    try:
-        conn = sqlite3.connect(db.db_path)
-        cursor = conn.cursor()
+    if db_manager is None:
+        db_manager = DBManager()
         
-        # Fetch all available price data
-        cursor.execute('SELECT market_hash_name, price, source FROM prices')
-        rows = cursor.fetchall()
-        conn.close()
+    try:
+        # Fetch all available price data via DBManager
+        rows = db_manager.get_all_prices()
     except Exception as e:
         bot_logger.error(f"Database error in arbitrage engine: {e}")
         return []
