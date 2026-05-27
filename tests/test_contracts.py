@@ -16,4 +16,4 @@ def test_get_lowest_price():
 
     engine = ContractEngine(db_manager)
     price = engine.get_lowest_price("AK-47 | Slate", "Field-Tested")
-    assert price == 1.40 # Buff is lowest
+    assert price == pytest.approx(1.40) # Buff is lowest
