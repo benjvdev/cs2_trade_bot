@@ -111,3 +111,12 @@ class DBManager:
         res = cursor.fetchone()
         conn.close()
         return res[0] if res else None
+
+    def get_all_prices(self):
+        """Returns all prices as a list of tuples (market_hash_name, price, source)"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT market_hash_name, price, source FROM prices')
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
