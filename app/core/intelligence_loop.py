@@ -1,20 +1,18 @@
 import time
 import os
 import subprocess
-import logging
 from app.scrapers import daily_dump, steam, csfloat
 from app.core import arbitrage
 from app.core.contracts import ContractEngine
 from app.database.db_manager import DBManager
 from app.core.config import Settings
-
-logger = logging.getLogger(__name__)
+from app.utils.logger import bot_logger
 
 def run_continuous_loop(config: Settings):
-    print("--- 🔄 STARTING CONTINUOUS INTELLIGENCE LOOP ---")
+    bot_logger.info("--- 🔄 STARTING CONTINUOUS INTELLIGENCE LOOP ---")
     
     # 1. Ensure the Daily Dump is fresh
-    print("Fetching daily dumps...")
+    bot_logger.info("Fetching daily dumps...")
     daily_dump.fetch_daily_dumps()
     
     rmb_to_usd = config.rmb_to_usd
@@ -22,13 +20,13 @@ def run_continuous_loop(config: Settings):
     sleep_time = config.batch_sleep
     
     while True:
-        print("\n--- 🧠 New Intelligence Cycle ---")
+        bot_logger.info("--- 🧠 New Intelligence Cycle ---")
         
         # 2. Use the analysis engines to find the top theoretical opportunities
-        print("🔍 Analyzing theoretical arbitrage opportunities...")
+        bot_logger.info("🔍 Analyzing theoretical arbitrage opportunities...")
         arb_opps = arbitrage.find_arbitrage_opportunities(rmb_to_usd=rmb_to_usd)
         
-        print("🔍 Analyzing theoretical contract opportunities...")
+        bot_logger.info("🔍 Analyzing theoretical contract opportunities...")
         db = DBManager()
         engine = ContractEngine(db, rmb_to_usd=rmb_to_usd)
         contracts_results = engine.hunt_contracts(
@@ -40,7 +38,7 @@ def run_continuous_loop(config: Settings):
         top_arb = arb_opps[:200]
         
         if not top_arb:
-            print("No theoretical opportunities found. Sleeping...")
+            bot_logger.info("No theoretical opportunities found. Sleeping...")
             time.sleep(sleep_time)
             continue
             
@@ -49,23 +47,23 @@ def run_continuous_loop(config: Settings):
         
         for i in range(total_batches):
             batch = top_arb[i*batch_size : (i+1)*batch_size]
-            print(f"\n📦 Processing batch {i+1}/{total_batches} ({len(batch)} items)")
+            bot_logger.info(f"📦 Processing batch {i+1}/{total_batches} ({len(batch)} items)")
             
             # 4. For each batch, trigger live scrapers
             steam_limit = config.steam_limit
             csfloat_limit = config.csfloat_limit
             buff_session = config.buff_session
             
-            print("🚀 Triggering live scrapers...")
+            bot_logger.info("🚀 Triggering live scrapers...")
             try:
                 steam.fetch_steam_prices(limit=steam_limit)
             except Exception as e:
-                print(f"⚠️ Steam scraper failed: {e}")
+                bot_logger.error(f"⚠️ Steam scraper failed: {e}")
 
             try:
                 csfloat.fetch_csfloat_prices(limit=csfloat_limit, settings=config)
             except Exception as e:
-                print(f"⚠️ CSFloat scraper failed: {e}")
+                bot_logger.error(f"⚠️ CSFloat scraper failed: {e}")
             
             # Try to determine category for Buff verification
             # For now, we still use weapon_ak47 but we could rotate or target
@@ -77,31 +75,32 @@ def run_continuous_loop(config: Settings):
             try:
                 subprocess.run(["node", buff_script, "weapon_ak47"], env=env, check=True)
             except Exception as e:
-                print(f"⚠️ Buff scraper failed: {e}")
+                bot_logger.error(f"⚠️ Buff scraper failed: {e}")
                 
             # 5. Log verified results
             try:
-                print("✅ Validating results with fresh data...")
+                bot_logger.info("✅ Validating results with fresh data...")
                 verified_arb_opps = arbitrage.find_arbitrage_opportunities(rmb_to_usd=rmb_to_usd)
                 
                 batch_names = [b['name'] for b in batch]
                 verified_in_batch = [opp for opp in verified_arb_opps if opp['name'] in batch_names and opp['profit'] > 0]
                 
                 if verified_in_batch:
-                    print(f"🎯 Found {len(verified_in_batch)} VERIFIED opportunities in this batch!")
+                    bot_logger.info(f"🎯 Found {len(verified_in_batch)} VERIFIED opportunities in this batch!")
                     for opp in verified_in_batch[:5]:
-                        print(f"   💰 {opp['name']} | Profit: ${opp['profit']:.2f} | ROI: {opp['roi']:.2f}% | Buy: {opp['buy_source']} -> Sell: {opp['sell_source']}")
+                        bot_logger.info(f"   💰 {opp['name']} | Profit: ${opp['profit']:.2f} | ROI: {opp['roi']:.2f}% | Buy: {opp['buy_source']} -> Sell: {opp['sell_source']}")
                 else:
-                    print("⚠️ No verified opportunities maintained their profit margin in this batch.")
+                    bot_logger.warning("No verified opportunities maintained their profit margin in this batch.")
             except Exception as e:
-                print(f"⚠️ Validation failed: {e}")
+                bot_logger.error(f"⚠️ Validation failed: {e}")
             
             # 6. Sleep between batches
-            print(f"⏳ Cooling down for {sleep_time} seconds to avoid bans...")
+            bot_logger.info(f"⏳ Cooling down for {sleep_time} seconds to avoid bans...")
             try:
                 time.sleep(sleep_time)
             except KeyboardInterrupt:
-                print("\n🛑 Loop interrupted by user. Exiting gracefully...")
+                bot_logger.info("🛑 Loop interrupted by user. Exiting gracefully...")
                 return
             
-        print("🏁 Cycle complete.")
+    bot_logger.info("🏁 Cycle complete.")
+

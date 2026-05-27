@@ -1,8 +1,6 @@
 import sqlite3
-import logging
 from app.database.db_manager import DBManager
-
-logger = logging.getLogger(__name__)
+from app.utils.logger import bot_logger
 
 def find_arbitrage_opportunities(rmb_to_usd=0.14):
     """
@@ -19,7 +17,7 @@ def find_arbitrage_opportunities(rmb_to_usd=0.14):
         rows = cursor.fetchall()
         conn.close()
     except Exception as e:
-        logger.error(f"Database error in arbitrage engine: {e}")
+        bot_logger.error(f"Database error in arbitrage engine: {e}")
         return []
 
     FEES = {

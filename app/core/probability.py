@@ -1,5 +1,11 @@
 import sqlite3
+import os
 from collections import defaultdict
+from app.utils.logger import bot_logger
+
+# Define DB path relative to project root
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DB_PATH = os.path.join(BASE_DIR, "cs2_skins.db")
 
 RARITY_ORDER = [
     "Consumer Grade", "Industrial Grade", "Mil-Spec Grade", 
@@ -31,7 +37,7 @@ def simulate_contract_probabilities(inputs_data):
     Calcula las probabilidades de salida basándose en la cantidad de inputs por colección.
     Fórmula Valve: P = (Inputs_Colección / 10) * (1 / Outputs_Posibles_Colección)
     """
-    conn = sqlite3.connect("cs2_skins.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     first_rarity = inputs_data[0]['rarity']
@@ -71,9 +77,9 @@ def simulate_contract_probabilities(inputs_data):
     return final_probabilities
 
 if __name__ == "__main__":
-    print("--- TEST PROBABILIDAD ---")
+    bot_logger.info("--- TEST PROBABILIDAD ---")
     try:
-        conn = sqlite3.connect("cs2_skins.db")
+        conn = sqlite3.connect(DB_PATH)
         # Buscamos cualquier colección válida para testear
         cursor = conn.cursor()
         cursor.execute("SELECT collection FROM skins WHERE rarity='Restricted' LIMIT 1")
@@ -82,16 +88,16 @@ if __name__ == "__main__":
 
         if res:
             col = res[0]
-            print(f"Probando 10 inputs de: {col}")
+            bot_logger.info(f"Probando 10 inputs de: {col}")
             inputs = [{'collection': col, 'rarity': 'Restricted'} for _ in range(10)]
-            
+
             results = simulate_contract_probabilities(inputs)
             total = sum(r['chance_percent'] for r in results)
-            
+
             for r in results:
-                print(f"{r['chance_percent']:.2f}% -> {r['name']}")
-            print(f"Suma Total: {total:.2f}%")
+                bot_logger.info(f"{r['chance_percent']:.2f}% -> {r['name']}")
+            bot_logger.info(f"Suma Total: {total:.2f}%")
         else:
-            print("No hay datos en la DB para ejecutar el test.")
+            bot_logger.warning("No hay datos en la DB para ejecutar el test.")
     except Exception as e:
-        print(f"Error: {e}")
+        bot_logger.error(f"Error: {e}")

@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from app.utils.logger import bot_logger
 
 class DBManager:
     def __init__(self, db_path=None):
@@ -39,7 +40,7 @@ class DBManager:
             pk_count = sum(1 for col in columns if col[5] > 0)
             
             if pk_count < 2:
-                print("⚠️ Old prices table detected. Migrating to multi-source schema...")
+                bot_logger.warning("Old prices table detected. Migrating to multi-source schema...")
                 cursor.execute("ALTER TABLE prices RENAME TO prices_old")
                 cursor.execute('''
                     CREATE TABLE prices (

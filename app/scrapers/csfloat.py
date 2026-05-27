@@ -3,6 +3,7 @@ import json
 import cloudscraper
 from app.database.db_manager import DBManager
 from app.core.config import load_settings, Settings
+from app.utils.logger import bot_logger
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config.json")
 
@@ -33,7 +34,7 @@ def fetch_csfloat_prices(limit=100, settings: Settings = None):
     )
     db = DBManager()
     
-    print(f"🚀 Fetching {limit} items from CSFloat...")
+    bot_logger.info(f"🚀 Fetching {limit} items from CSFloat...")
     
     headers = {
         "Accept": "application/json",
@@ -46,14 +47,14 @@ def fetch_csfloat_prices(limit=100, settings: Settings = None):
         response = scraper.get(url, headers=headers, timeout=30)
         
         if response.status_code != 200:
-            print(f"❌ CSFloat API Error: {response.status_code}")
+            bot_logger.error(f"❌ CSFloat API Error: {response.status_code}")
             return False
             
         data = response.json()
         
         # CSFloat returns a list of listings
         if not isinstance(data, list):
-            print("❌ CSFloat API unexpected response format (not a list)")
+            bot_logger.error("❌ CSFloat API unexpected response format (not a list)")
             return False
             
         batch_data = []
@@ -69,14 +70,14 @@ def fetch_csfloat_prices(limit=100, settings: Settings = None):
                 
         if batch_data:
             db.update_prices_batch(batch_data)
-            print(f"✅ Successfully updated {len(batch_data)} items from CSFloat.")
+            bot_logger.info(f"✅ Successfully updated {len(batch_data)} items from CSFloat.")
             return True
         else:
-            print("⚠️ No valid items found in CSFloat response.")
+            bot_logger.warning("⚠️ No valid items found in CSFloat response.")
             return False
             
     except Exception as e:
-        print(f"❌ Error fetching CSFloat prices: {e}")
+        bot_logger.error(f"❌ Error fetching CSFloat prices: {e}")
         return False
 
 if __name__ == "__main__":

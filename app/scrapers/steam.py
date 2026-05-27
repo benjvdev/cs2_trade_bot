@@ -2,6 +2,7 @@ import time
 import random
 import cloudscraper
 from app.database.db_manager import DBManager
+from app.utils.logger import bot_logger
 
 def fetch_steam_prices(limit=100):
     """
@@ -12,7 +13,7 @@ def fetch_steam_prices(limit=100):
     scraper = cloudscraper.create_scraper()
     db = DBManager()
     
-    print(f"🚀 Fetching {limit} items from Steam...")
+    bot_logger.info(f"🚀 Fetching {limit} items from Steam...")
     
     # Add initial jitter
     time.sleep(random.uniform(1.0, 3.0))
@@ -31,18 +32,18 @@ def fetch_steam_prices(limit=100):
             
             if response.status_code == 429:
                 wait_time = 2**retry_count * 30
-                print(f"⚠️ Steam Rate Limit hit (429). Retrying in {wait_time} seconds... ({retry_count + 1}/{max_retries})")
+                bot_logger.warning(f"⚠️ Steam Rate Limit hit (429). Retrying in {wait_time} seconds... ({retry_count + 1}/{max_retries})")
                 time.sleep(wait_time)
                 retry_count += 1
                 continue
                 
             if response.status_code != 200:
-                print(f"❌ Steam API Error: {response.status_code}")
+                bot_logger.error(f"❌ Steam API Error: {response.status_code}")
                 return False
                 
             data = response.json()
             if not data.get("success"):
-                print("❌ Steam API success=False")
+                bot_logger.error("❌ Steam API success=False")
                 return False
                 
             results = data.get("results", [])
@@ -60,17 +61,17 @@ def fetch_steam_prices(limit=100):
             
             if batch_data:
                 db.update_prices_batch(batch_data)
-                print(f"✅ Successfully updated {len(batch_data)} items from Steam.")
+                bot_logger.info(f"✅ Successfully updated {len(batch_data)} items from Steam.")
                 return True
             else:
-                print("⚠️ No valid items found in Steam response.")
+                bot_logger.warning("⚠️ No valid items found in Steam response.")
                 return False
                 
         except Exception as e:
-            print(f"❌ Error fetching Steam prices: {e}")
+            bot_logger.error(f"❌ Error fetching Steam prices: {e}")
             return False
             
-    print("❌ Max retries reached for Steam.")
+    bot_logger.error("❌ Max retries reached for Steam.")
     return False
 
 if __name__ == "__main__":

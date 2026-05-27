@@ -1,8 +1,6 @@
 import requests
-import logging
 from app.database.db_manager import DBManager
-
-logger = logging.getLogger(__name__)
+from app.utils.logger import bot_logger
 
 BUFF_URL = "https://prices.csgotrader.app/latest/buff163.json"
 V6_URL = "https://prices.csgotrader.app/latest/prices_v6.json"
@@ -15,7 +13,7 @@ def fetch_daily_dumps():
     
     # 1. Buff Dump
     try:
-        print(f"Fetching Buff dump from {BUFF_URL}...")
+        bot_logger.info(f"Fetching Buff dump from {BUFF_URL}...")
         r = requests.get(BUFF_URL, headers=headers, timeout=30)
         r.raise_for_status()
         data = r.json()
@@ -25,13 +23,13 @@ def fetch_daily_dumps():
             if price:
                 batch.append((name, price, "dump_buff"))
         db.update_prices_batch(batch)
-        print(f"✅ Loaded {len(batch)} items from Buff dump.")
+        bot_logger.info(f"✅ Loaded {len(batch)} items from Buff dump.")
     except Exception as e:
-        print(f"❌ Error loading Buff dump: {e}")
+        bot_logger.error(f"❌ Error loading Buff dump: {e}")
 
     # 2. V6 Dump (Steam, Skinport, Skinbaron)
     try:
-        print(f"Fetching V6 dump from {V6_URL}...")
+        bot_logger.info(f"Fetching V6 dump from {V6_URL}...")
         r = requests.get(V6_URL, headers=headers, timeout=30)
         r.raise_for_status()
         data = r.json()
@@ -53,10 +51,10 @@ def fetch_daily_dumps():
         for source, batch in batches.items():
             if batch:
                 db.update_prices_batch(batch)
-                print(f"✅ Loaded {len(batch)} items from {source}.")
+                bot_logger.info(f"✅ Loaded {len(batch)} items from {source}.")
             
     except Exception as e:
-        print(f"❌ Error loading V6 dump: {e}")
+        bot_logger.error(f"❌ Error loading V6 dump: {e}")
 
 if __name__ == "__main__":
     fetch_daily_dumps()
