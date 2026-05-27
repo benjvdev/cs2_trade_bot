@@ -1,0 +1,13 @@
+{
+    "min_roi": 15.0,
+    "max_budget": 50.0,
+    "buff_session": "YOUR_SESSION_HERE",
+    "steam_limit": 50,
+    "csfloat_limit": 50,
+    "rmb_to_usd": 0.14,
+    "csfloat_api_key": "YOUR_CSFLOAT_API_KEY",
+    "skinport_api_key": "YOUR_SKINPORT_API_KEY_OPTIONAL",
+    "skinbaron_api_key": "YOUR_SKINBARON_API_KEY_OPTIONAL",
+    "batch_size": 100,
+    "batch_sleep": 5.0
+}

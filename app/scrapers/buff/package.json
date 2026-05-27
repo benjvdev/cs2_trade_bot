@@ -1,0 +1,10 @@
+{
+  "name": "buff-scraper",
+  "version": "1.0.0",
+  "description": "Buff163 price scraper using Playwright",
+  "main": "index.js",
+  "dependencies": {
+    "playwright": "^1.60.0",
+    "sqlite3": "^5.1.7"
+  }
+}
