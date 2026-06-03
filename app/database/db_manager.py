@@ -120,3 +120,22 @@ class DBManager:
         rows = cursor.fetchall()
         conn.close()
         return rows
+
+    def get_all_price_records(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.cursor()
+            cursor.execute('SELECT market_hash_name, price, source, updated_at FROM prices')
+            return [dict(row) for row in cursor.fetchall()]
+        finally:
+            conn.close()
+
+    def get_price_map(self):
+        price_map = {}
+        for row in self.get_all_price_records():
+            price_map.setdefault(row["market_hash_name"], {})[row["source"]] = {
+                "price": row["price"],
+                "updated_at": row["updated_at"],
+            }
+        return price_map

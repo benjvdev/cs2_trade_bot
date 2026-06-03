@@ -14,6 +14,23 @@ class ContractEngine:
     def __init__(self, db_manager, rmb_to_usd=0.14):
         self.db = db_manager
         self.rmb_to_usd = rmb_to_usd
+        get_price_map = getattr(self.db, "get_price_map", None)
+        self.price_map = get_price_map() if callable(get_price_map) else None
+        self._price_map_is_authoritative = (
+            isinstance(self.price_map, dict)
+            and callable(getattr(self.db, "get_all_price_records", None))
+        )
+
+    def _lookup_price(self, market_hash_name, source):
+        if isinstance(self.price_map, dict):
+            source_data = self.price_map.get(market_hash_name, {}).get(source)
+            if isinstance(source_data, dict):
+                price = source_data.get("price")
+                if price is not None:
+                    return price
+            if self._price_map_is_authoritative:
+                return None
+        return self.db.get_price(market_hash_name, source)
 
     def get_lowest_price(self, skin_name, wear):
         """Finds the lowest price among available sources including dumps."""
@@ -23,10 +40,10 @@ class ContractEngine:
         sources = ['steam', 'csfloat', 'buff', 'skinport', 'skinbaron', 'csgobackpack']
         for s in sources:
             # Check live
-            p = self.db.get_price(hash_name, s)
+            p = self._lookup_price(hash_name, s)
             if p is None:
                 # Check dump
-                p = self.db.get_price(hash_name, f"dump_{s}")
+                p = self._lookup_price(hash_name, f"dump_{s}")
             
             if p is not None:
                 if s == 'buff': p *= self.rmb_to_usd
@@ -47,7 +64,10 @@ class ContractEngine:
 
         # 2. Simulate Outcomes
         try:
-            outcomes = probability.simulate_contract_probabilities(inputs)
+            outcomes = probability.simulate_contract_probabilities(
+                inputs,
+                db_path=getattr(self.db, "db_path", None),
+            )
         except Exception as e:
             return {"error": str(e)}
         
@@ -64,13 +84,21 @@ class ContractEngine:
             best_source = None
             
             for source, fee in self.MARKET_FEES.items():
-                p_sell = self.db.get_price(f"{outcome['name']} ({out_wear})", source)
-                if p_sell:
+                outcome_hash_name = f"{outcome['name']} ({out_wear})"
+                price_source = source
+                p_sell = self._lookup_price(outcome_hash_name, source)
+                if p_sell is None:
+                    dump_source = f"dump_{source}"
+                    p_sell = self._lookup_price(outcome_hash_name, dump_source)
+                    if p_sell is not None:
+                        price_source = dump_source
+
+                if p_sell is not None:
                     if source == 'buff': p_sell *= self.rmb_to_usd
                     net = p_sell * (1 - fee)
                     if net > max_net:
                         max_net = net
-                        best_source = source
+                        best_source = price_source
             
             expected_revenue += prob * max_net
             detailed_outcomes.append({
@@ -93,24 +121,53 @@ class ContractEngine:
             "outcomes": detailed_outcomes
         }
 
+    def _evaluate_combo(self, results, target, filler, n_t, n_f, min_roi):
+        if n_f > 0 and filler is None:
+            raise ValueError("filler is required when filler_count is positive")
+
+        input_float = 0.08
+        inputs = []
+        for _ in range(n_t):
+            t_copy = target.copy()
+            t_copy['float'] = input_float
+            inputs.append(t_copy)
+        for _ in range(n_f):
+            f_copy = filler.copy()
+            f_copy['float'] = input_float
+            inputs.append(f_copy)
+
+        report = self.calculate_contract_profitability(inputs)
+        if "error" not in report and report['roi'] >= min_roi:
+            report["inputs"] = {
+                "target": target["name"],
+                "filler": filler["name"] if filler else None,
+                "target_count": n_t,
+                "filler_count": n_f,
+                "input_float": input_float,
+            }
+            results.append(report)
+
     def hunt_contracts(self, min_roi=10.0, max_budget=25.0):
         """Iterates through tiers to find profitable contract recipes using dump data as filter."""
         conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
-        # 1. Load all dump prices for pre-filtering
-        cursor.execute("SELECT market_hash_name, price, source FROM prices WHERE source LIKE 'dump_%' OR source = 'csgobackpack'")
-        dump_prices = {}
-        for name, price, source in cursor.fetchall():
-            market_base = source.replace('dump_', '')
-            if name not in dump_prices: dump_prices[name] = {}
-            dump_prices[name][market_base] = price
+        try:
+            cursor = conn.cursor()
 
-        cursor.execute("SELECT name, collection, rarity, min_float, max_float FROM skins")
-        all_skins = [
-            {'name': r[0], 'collection': r[1], 'rarity': r[2], 'min_float': r[3], 'max_float': r[4]}
-            for r in cursor.fetchall()
-        ]
+            # 1. Load all dump prices for pre-filtering
+            cursor.execute("SELECT market_hash_name, price, source FROM prices WHERE source LIKE 'dump_%' OR source = 'csgobackpack'")
+            dump_prices = {}
+            for name, price, source in cursor.fetchall():
+                market_base = source.replace('dump_', '')
+                if name not in dump_prices: dump_prices[name] = {}
+                dump_prices[name][market_base] = price
+
+            cursor.execute("SELECT name, collection, rarity, min_float, max_float FROM skins")
+            all_skins = [
+                {'name': r[0], 'collection': r[1], 'rarity': r[2], 'min_float': r[3], 'max_float': r[4]}
+                for r in cursor.fetchall()
+            ]
+        finally:
+            conn.close()
         
         # Group by rarity
         by_rarity = {}
@@ -151,25 +208,9 @@ class ContractEngine:
             targets = inputs_pool
 
             for target in targets:
+                self._evaluate_combo(results, target, None, 10, 0, min_roi)
                 for filler in fillers:
                     if target['collection'] == filler['collection']: continue
-                    
-                    # Test common ratios
-                    combos = [(10, 0), (9, 1), (5, 5)]
-                    for n_t, n_f in combos:
-                        inputs = []
-                        for _ in range(n_t): 
-                            t_copy = target.copy()
-                            t_copy['float'] = 0.08 # Default test float
-                            inputs.append(t_copy)
-                        for _ in range(n_f):
-                            f_copy = filler.copy()
-                            f_copy['float'] = 0.08
-                            inputs.append(f_copy)
-                            
-                        report = self.calculate_contract_profitability(inputs)
-                        if "error" not in report and report['roi'] >= min_roi:
-                            results.append(report)
-        
-        conn.close()
+                    self._evaluate_combo(results, target, filler, 9, 1, min_roi)
+                    self._evaluate_combo(results, target, filler, 5, 5, min_roi)
         return results

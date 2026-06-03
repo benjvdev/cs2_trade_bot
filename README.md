@@ -1,15 +1,16 @@
 # CS2 Trade & Arbitrage Bot
 
-Herramienta avanzada para la simulación de contratos (trade-ups) y detección de oportunidades de arbitraje entre múltiples mercados (Buff163, Steam, CSFloat, Skinport, Skinbaron).
+Herramienta avanzada para la simulacion de contratos (trade-ups) y deteccion de oportunidades de arbitraje entre Buff163, Steam y CSFloat. Skinport se consume actualmente mediante daily dump cuando esta disponible; Skinbaron queda reservado para daily dump futuro si vuelve a existir un endpoint JSON valido. No existen scrapers autenticados dedicados para Skinport/Skinbaron.
 
 ## Características
 
-- **Scraping Multi-mercado:** Obtiene precios en tiempo real de Buff163 (vía Playwright), Steam, CSFloat (con soporte API Key), Skinport y Skinbaron.
+- **Scraping Multi-mercado:** Obtiene precios live de Buff163 (via Playwright), Steam y CSFloat (con soporte API Key). Buff, Steam y Skinport tambien se consumen desde daily dumps CSGOTrader cuando estan disponibles; Skinbaron no tiene endpoint JSON activo actualmente.
 - **Arbitrage Engine:** Encuentra diferencias de precio netas considerando comisiones de distintos mercados.
 - **Contract Hunter Pro:** Optimiza combinaciones de contratos (10x, 9x+1x, etc.) buscando los insumos más baratos globalmente.
 - **Daily Dump:** Extracción masiva diaria de datos de mercado para análisis a largo plazo.
 - **Continuous Intelligence Loop:** Bucle continuo que monitorea precios, extrae información en tiempo real, analiza oportunidades en lotes (batching) y notifica de hallazgos.
-- **Gestión de Riesgo:** Filtra items por volumen de venta y estabilidad de precio para mitigar el Trade Hold de 7 días.
+- **Estado de datos:** En la ruta completa/default, si todos los scrapers y dumps fallan, el bot se niega a analizar para evitar reportes obsoletos. La marca por ventana de frescura (`max_price_age_hours`) esta planificada/en estabilizacion.
+- **Gestion de Riesgo:** Incluye parametros de ROI, presupuesto y frescura; los filtros completos de volumen/liquidez y estabilidad siguen en estabilizacion y no deben tratarse como validacion live completa.
 
 ## Estructura del Proyecto
 
@@ -60,11 +61,21 @@ cp config.example.json config.json
 ```
 
 **Nuevos campos de configuración:**
+
+`config.json` contiene configuracion personal y permanece ignorado por Git. No subas cookies ni API keys al repositorio. Tambien puedes suministrar secretos mediante variables de entorno; si existen, reemplazan los valores del archivo:
+
+- `BUFF_SESSION`
+- `CSFLOAT_API_KEY`
+- `SKINPORT_API_KEY`
+- `SKINBARON_API_KEY`
+
+Nota: las variables de Skinport y Skinbaron se aceptan como overrides de configuracion, pero la ingesta actual de Skinport usa daily dump cuando esta disponible. Skinbaron no tiene endpoint JSON activo actualmente. Los scrapers autenticados dedicados para Skinport/Skinbaron aun no estan implementados.
+
 - `csfloat_api_key`: Tu clave de API para CSFloat.
 - `batch_size`: Tamaño del lote de peticiones para operaciones continuas y scraping.
 - `batch_sleep`: Tiempo de espera (en segundos) entre lotes para evitar bloqueos por rate-limit.
-- `skinport_api_key`: Clave para Skinport (opcional).
-- `skinbaron_api_key`: Clave para Skinbaron (opcional).
+- `skinport_api_key`: Reservado para una futura integracion autenticada de Skinport; actualmente Skinport llega por daily dump cuando esta disponible.
+- `skinbaron_api_key`: Reservado para una futura integracion autenticada de Skinbaron; actualmente Skinbaron no tiene endpoint JSON activo en daily dump.
 
 ## Uso
 
@@ -86,12 +97,12 @@ El bot se maneja mediante argumentos de línea de comandos:
   ```
 
 - **Ejecutar el Continuous Intelligence Loop:**
-  Inicia el bucle continuo que realiza el monitoreo automático de precios y análisis, integrando los datos de todos los mercados soportados.
+  Inicia el bucle continuo que realiza el monitoreo automatico de precios y analisis, combinando live scrapers de Buff/Steam/CSFloat con los datos de daily dump disponibles.
   ```bash
   python -m app.main --loop
   ```
 
-Los resultados de los análisis aparecerán en la carpeta `reports/`.
+Los resultados de los analisis apareceran en la carpeta `reports/`. En la ruta completa/default, si ningun scraper o dump reporta exito, el proceso se detiene antes de analizar datos viejos. La marca automatica de reportes por edad de fuente aun se esta estabilizando alrededor de `max_price_age_hours`.
 
 ## Contribuciones
 

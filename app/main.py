@@ -15,12 +15,22 @@ CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.j
 REPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "reports")
 
 def run_scrapers(config):
+    status = {
+        "daily_dump": False,
+        "steam": False,
+        "csfloat": False,
+        "buff": False,
+    }
     bot_logger.info("--- 🚀 RUNNING SCRAPERS ---")
     
     # Run Daily Dumps first to have a base
     bot_logger.info("🚀 Fetching daily dumps...")
     try:
-        daily_dump.fetch_daily_dumps()
+        daily_dump_status = daily_dump.fetch_daily_dumps()
+        if isinstance(daily_dump_status, dict):
+            status["daily_dump"] = any(bool(source_status) for source_status in daily_dump_status.values())
+        else:
+            status["daily_dump"] = bool(daily_dump_status)
     except Exception as e:
         bot_logger.error(f"❌ Error running daily dump: {e}")
 
@@ -28,11 +38,28 @@ def run_scrapers(config):
     csfloat_limit = config.csfloat_limit
     buff_session = config.buff_session
 
+    failed_scrapers = []
+
     # Run Steam
-    steam.fetch_steam_prices(limit=steam_limit)
+    try:
+        status["steam"] = bool(steam.fetch_steam_prices(limit=steam_limit))
+    except Exception as e:
+        bot_logger.error(f"❌ Error running Steam scraper: {e}")
+        status["steam"] = False
+    if not status["steam"]:
+        failed_scrapers.append("Steam")
     
     # Run CSFloat
-    csfloat.fetch_csfloat_prices(limit=csfloat_limit)
+    try:
+        status["csfloat"] = bool(csfloat.fetch_csfloat_prices(limit=csfloat_limit, settings=config))
+    except Exception as e:
+        bot_logger.error(f"❌ Error running CSFloat scraper: {e}")
+        status["csfloat"] = False
+    if not status["csfloat"]:
+        failed_scrapers.append("CSFloat")
+
+    if failed_scrapers:
+        bot_logger.warning(f"Failed scrapers: {', '.join(failed_scrapers)}")
     
     # Run Buff (Node.js script)
     bot_logger.info("🚀 Fetching items from Buff (Node.js)...")
@@ -41,9 +68,12 @@ def run_scrapers(config):
     buff_script = os.path.join(os.path.dirname(__file__), "scrapers", "buff", "index.js")
     try:
         subprocess.run(["node", buff_script, "weapon_ak47"], env=env, check=True)
+        status["buff"] = True
         bot_logger.info("✅ Buff scraper finished.")
     except Exception as e:
         bot_logger.error(f"❌ Error running Buff scraper: {e}")
+
+    return status
 
 def run_analysis(config):
     bot_logger.info("--- 📊 RUNNING ANALYSIS ---")
@@ -51,7 +81,10 @@ def run_analysis(config):
     
     # Arbitrage
     bot_logger.info("🔍 Finding arbitrage opportunities...")
-    opps = arbitrage.find_arbitrage_opportunities(rmb_to_usd=rmb_to_usd)
+    opps = arbitrage.find_arbitrage_opportunities(
+        rmb_to_usd=rmb_to_usd,
+        min_roi=config.min_roi,
+    )
     
     # Contracts
     bot_logger.info("🔍 Hunting for profitable contracts...")
@@ -118,7 +151,9 @@ def main():
         return
 
     if args.all or (not args.scrape and not args.analyze and not args.loop):
-        run_scrapers(config)
+        scrape_status = run_scrapers(config)
+        if scrape_status and not any(scrape_status.values()):
+            raise RuntimeError("All scrapers failed; refusing to analyze stale data.")
         arb, con = run_analysis(config)
         generate_reports(arb, con)
     else:

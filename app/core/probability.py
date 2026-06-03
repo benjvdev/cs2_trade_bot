@@ -32,49 +32,56 @@ def fetch_possible_outcomes(cursor, collection, target_rarity):
         for r in cursor.fetchall()
     ]
 
-def simulate_contract_probabilities(inputs_data):
+def simulate_contract_probabilities(inputs_data, db_path=None):
     """
     Calcula las probabilidades de salida basándose en la cantidad de inputs por colección.
     Fórmula Valve: P = (Inputs_Colección / 10) * (1 / Outputs_Posibles_Colección)
     """
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    first_rarity = inputs_data[0]['rarity']
-    target_rarity = get_next_rarity(first_rarity)
-    
-    if not target_rarity:
-        conn.close()
-        raise ValueError(f"No se puede hacer trade-up desde {first_rarity}.")
+    if len(inputs_data) != 10:
+        raise ValueError("A trade-up contract requires exactly 10 inputs.")
 
-    # Agrupar inputs por colección
-    collection_counts = defaultdict(int)
-    for inp in inputs_data:
-        collection_counts[inp['collection']] += 1
+    first_rarity = inputs_data[0]['rarity']
+    if any(inp['rarity'] != first_rarity for inp in inputs_data):
+        raise ValueError("All contract inputs must have the same rarity.")
+
+    conn = sqlite3.connect(db_path or DB_PATH)
+    try:
+        cursor = conn.cursor()
+
+        target_rarity = get_next_rarity(first_rarity)
+
+        if not target_rarity:
+            raise ValueError(f"No se puede hacer trade-up desde {first_rarity}.")
+
+        # Agrupar inputs por colección
+        collection_counts = defaultdict(int)
+        for inp in inputs_data:
+            collection_counts[inp['collection']] += 1
+
+        final_probabilities = []
+
+        for collection, input_count in collection_counts.items():
+            outcomes = fetch_possible_outcomes(cursor, collection, target_rarity)
+            num_outcomes = len(outcomes)
         
-    final_probabilities = []
-    
-    for collection, input_count in collection_counts.items():
-        outcomes = fetch_possible_outcomes(cursor, collection, target_rarity)
-        num_outcomes = len(outcomes)
-        
-        if num_outcomes == 0:
-            continue
+            if num_outcomes == 0:
+                continue
             
         # Cálculo de probabilidad individual
-        chance_per_item = (input_count / 10.0) * (1.0 / num_outcomes)
+            chance_per_item = (input_count / 10.0) * (1.0 / num_outcomes)
         
-        for outcome in outcomes:
-            final_probabilities.append({
-                "name": outcome['name'],
-                "chance_percent": chance_per_item * 100,
-                "min_float": outcome['min_float'],
-                "max_float": outcome['max_float'],
-                "collection": outcome['collection']
-            })
+            for outcome in outcomes:
+                final_probabilities.append({
+                    "name": outcome['name'],
+                    "chance_percent": chance_per_item * 100,
+                    "min_float": outcome['min_float'],
+                    "max_float": outcome['max_float'],
+                    "collection": outcome['collection']
+                })
 
-    conn.close()
-    return final_probabilities
+        return final_probabilities
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
     bot_logger.info("--- TEST PROBABILIDAD ---")

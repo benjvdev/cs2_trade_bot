@@ -8,7 +8,7 @@ from app.database.db_manager import DBManager
 from app.core.config import Settings
 from app.utils.logger import bot_logger
 
-def run_continuous_loop(config: Settings):
+def run_continuous_loop(config: Settings, max_cycles=None):
     bot_logger.info("--- 🔄 STARTING CONTINUOUS INTELLIGENCE LOOP ---")
     
     # 1. Ensure the Daily Dump is fresh
@@ -18,6 +18,7 @@ def run_continuous_loop(config: Settings):
     rmb_to_usd = config.rmb_to_usd
     batch_size = config.batch_size
     sleep_time = config.batch_sleep
+    completed_cycles = 0
     
     while True:
         bot_logger.info("--- 🧠 New Intelligence Cycle ---")
@@ -39,6 +40,9 @@ def run_continuous_loop(config: Settings):
         
         if not top_arb:
             bot_logger.info("No theoretical opportunities found. Sleeping...")
+            completed_cycles += 1
+            if max_cycles is not None and completed_cycles >= max_cycles:
+                return
             time.sleep(sleep_time)
             continue
             
@@ -47,6 +51,7 @@ def run_continuous_loop(config: Settings):
         
         for i in range(total_batches):
             batch = top_arb[i*batch_size : (i+1)*batch_size]
+            batch_names = [b['name'] for b in batch]
             bot_logger.info(f"📦 Processing batch {i+1}/{total_batches} ({len(batch)} items)")
             
             # 4. For each batch, trigger live scrapers
@@ -61,7 +66,11 @@ def run_continuous_loop(config: Settings):
                 bot_logger.error(f"⚠️ Steam scraper failed: {e}")
 
             try:
-                csfloat.fetch_csfloat_prices(limit=csfloat_limit, settings=config)
+                csfloat.fetch_csfloat_prices(
+                    limit=csfloat_limit,
+                    settings=config,
+                    market_hash_names=batch_names,
+                )
             except Exception as e:
                 bot_logger.error(f"⚠️ CSFloat scraper failed: {e}")
             
@@ -82,7 +91,6 @@ def run_continuous_loop(config: Settings):
                 bot_logger.info("✅ Validating results with fresh data...")
                 verified_arb_opps = arbitrage.find_arbitrage_opportunities(rmb_to_usd=rmb_to_usd)
                 
-                batch_names = [b['name'] for b in batch]
                 verified_in_batch = [opp for opp in verified_arb_opps if opp['name'] in batch_names and opp['profit'] > 0]
                 
                 if verified_in_batch:
@@ -94,6 +102,11 @@ def run_continuous_loop(config: Settings):
             except Exception as e:
                 bot_logger.error(f"⚠️ Validation failed: {e}")
             
+            if i == total_batches - 1:
+                completed_cycles += 1
+                if max_cycles is not None and completed_cycles >= max_cycles:
+                    return
+
             # 6. Sleep between batches
             bot_logger.info(f"⏳ Cooling down for {sleep_time} seconds to avoid bans...")
             try:

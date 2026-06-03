@@ -31,6 +31,10 @@ def fetch_steam_prices(limit=100):
             response = scraper.get(url, timeout=30)
             
             if response.status_code == 429:
+                if retry_count >= max_retries:
+                    bot_logger.error("❌ Max retries reached for Steam.")
+                    return False
+
                 wait_time = 2**retry_count * 30
                 bot_logger.warning(f"⚠️ Steam Rate Limit hit (429). Retrying in {wait_time} seconds... ({retry_count + 1}/{max_retries})")
                 time.sleep(wait_time)
@@ -68,8 +72,14 @@ def fetch_steam_prices(limit=100):
                 return False
                 
         except Exception as e:
-            bot_logger.error(f"❌ Error fetching Steam prices: {e}")
-            return False
+            retry_count += 1
+            if retry_count > max_retries:
+                bot_logger.error(f"Error fetching Steam prices after retries: {e}")
+                return False
+
+            wait_time = 2**retry_count * 10
+            bot_logger.warning(f"Steam request failed. Retrying in {wait_time}s: {e}")
+            time.sleep(wait_time)
             
     bot_logger.error("❌ Max retries reached for Steam.")
     return False

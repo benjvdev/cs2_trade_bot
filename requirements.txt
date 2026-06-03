@@ -1,3 +1,5 @@
 cloudscraper
 requests
 playwright
+pydantic
+pytest

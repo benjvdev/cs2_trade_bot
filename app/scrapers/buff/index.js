@@ -11,38 +11,52 @@ const DB_PATH = path.resolve(__dirname, '../../../cs2_skins.db');
  * @param {string} sessionCookie - The 'session' cookie value for authentication
  */
 async function fetchBuffPrices(category, sessionCookie) {
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext();
-
-    // Set the session cookie for buff.163.com to bypass login
-    await context.addCookies([
-        {
-            name: 'session',
-            value: sessionCookie,
-            domain: 'buff.163.com',
-            path: '/'
-        }
-    ]);
-
-    const page = await context.newPage();
-    const url = `https://buff.163.com/api/market/goods?game=csgo&page_num=1&category=${category}`;
-
-    const db = new sqlite3.Database(DB_PATH);
+    let browser;
+    let db;
 
     try {
-        console.log(`[Buff] Starting fetch for category: ${category}`);
+        browser = await chromium.launch({ headless: true });
+        const context = await browser.newContext();
 
-        // Intercept the API response to get the raw JSON data
-        const responsePromise = page.waitForResponse(response => 
-            response.url().includes('/api/market/goods') && response.status() === 200
-        );
+        // Set the session cookie for buff.163.com to bypass login
+        await context.addCookies([
+            {
+                name: 'session',
+                value: sessionCookie,
+                domain: 'buff.163.com',
+                path: '/'
+            }
+        ]);
+
+        const page = await context.newPage();
+        const url = `https://buff.163.com/api/market/goods?game=csgo&page_num=1&category=${category}`;
+
+        db = new sqlite3.Database(DB_PATH);
+
+        console.log(`[Buff] Starting fetch for category: ${category}`);
 
         // Add random delay (1-3 seconds) to mimic human behavior
         await page.waitForTimeout(Math.random() * 2000 + 1000);
 
-        await page.goto(url);
+        const response = await page.goto(url, { timeout: 45000 });
 
-        const response = await responsePromise;
+        if (!response) {
+            throw new Error('Buff did not return a response.');
+        }
+        if (page.url().includes('/account/login')) {
+            throw new Error('Buff session expired or invalid. Please update BUFF_SESSION.');
+        }
+        const responseUrl = new URL(response.url());
+        if (responseUrl.pathname !== '/api/market/goods') {
+            throw new Error(`Buff returned unexpected URL: ${responseUrl.pathname}`);
+        }
+        if (response.status() !== 200) {
+            throw new Error(`Buff HTTP ${response.status()}`);
+        }
+        const contentType = response.headers()['content-type'] || '';
+        if (!contentType.toLowerCase().includes('json')) {
+            throw new Error(`Buff returned non-JSON content-type: ${contentType}`);
+        }
         const data = await response.json();
 
         // Error handling for session expiration or API errors
@@ -51,10 +65,14 @@ async function fetchBuffPrices(category, sessionCookie) {
             if (data.code === 'Login Required') {
                 throw new Error('Buff session expired or invalid. Please update cookies.');
             }
-            return;
+            throw new Error(`Buff API error: ${data.code}`);
         }
 
-        const items = data.data.items;
+        const items = data.data && data.data.items;
+        if (!Array.isArray(items) || items.length === 0) {
+            throw new Error('Buff returned no market items.');
+        }
+
         console.log(`[Buff] Successfully retrieved ${items.length} items.`);
 
         // Prepare data for batch insertion inside a Promise to ensure we await completion
@@ -84,9 +102,14 @@ async function fetchBuffPrices(category, sessionCookie) {
 
     } catch (error) {
         console.error(`[Buff] Critical failure: ${error.message}`);
+        process.exitCode = 1;
     } finally {
-        db.close();
-        await browser.close();
+        if (db) {
+            db.close();
+        }
+        if (browser) {
+            await browser.close();
+        }
     }
 }
 
